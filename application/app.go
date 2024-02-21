@@ -12,20 +12,25 @@ import (
 type App struct {
 	router http.Handler
 	rdb    *redis.Client
+	config Config
 }
 
-func New() *App {
+func New(config Config) *App {
 	app := &App{
-		router: loadRoutes(),
-		rdb:    redis.NewClient(&redis.Options{}),
+		rdb: redis.NewClient(&redis.Options{
+			Addr: config.RedisAddress,
+		}),
+		config: config,
 	}
+
+	app.loadRoutes()
 
 	return app
 }
 
 func (a *App) Start(ctx context.Context) error {
 	server := &http.Server{
-		Addr:    ":3000",
+		Addr:    fmt.Sprintf(":%d", a.config.ServerPort),
 		Handler: a.router,
 	}
 
@@ -47,7 +52,7 @@ func (a *App) Start(ctx context.Context) error {
 	go func() {
 		err = server.ListenAndServe()
 		if err != nil {
-			ch <- fmt.Errorf("failed to listen to server: %w", err)
+			ch <- fmt.Errorf("failed to start server: %w", err)
 		}
 		close(ch)
 	}()
@@ -62,5 +67,4 @@ func (a *App) Start(ctx context.Context) error {
 		return server.Shutdown(timeout)
 	}
 
-	return nil
 }

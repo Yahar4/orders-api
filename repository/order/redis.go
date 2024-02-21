@@ -6,8 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Yahar4/orders-api/model"
 	"github.com/redis/go-redis/v9"
+
+	"github.com/Yahar4/orders-api/model"
 )
 
 type RedisRepo struct {
@@ -15,13 +16,13 @@ type RedisRepo struct {
 }
 
 func orderIDKey(id uint64) string {
-	return fmt.Sprintf("order: %d", id)
+	return fmt.Sprintf("order:%d", id)
 }
 
 func (r *RedisRepo) Insert(ctx context.Context, order model.Order) error {
 	data, err := json.Marshal(order)
 	if err != nil {
-		return fmt.Errorf("failed to encode order %w: ", err)
+		return fmt.Errorf("failed to encode order: %w", err)
 	}
 
 	key := orderIDKey(order.OrderID)
@@ -31,7 +32,7 @@ func (r *RedisRepo) Insert(ctx context.Context, order model.Order) error {
 	res := txn.SetNX(ctx, key, string(data), 0)
 	if err := res.Err(); err != nil {
 		txn.Discard()
-		return fmt.Errorf("failed to set: %w ", err)
+		return fmt.Errorf("failed to set: %w", err)
 	}
 
 	if err := txn.SAdd(ctx, "orders", key).Err(); err != nil {
@@ -46,7 +47,7 @@ func (r *RedisRepo) Insert(ctx context.Context, order model.Order) error {
 	return nil
 }
 
-var ErrNotExist = errors.New("orders does not exist")
+var ErrNotExist = errors.New("order does not exist")
 
 func (r *RedisRepo) FindByID(ctx context.Context, id uint64) (model.Order, error) {
 	key := orderIDKey(id)
@@ -65,7 +66,6 @@ func (r *RedisRepo) FindByID(ctx context.Context, id uint64) (model.Order, error
 	}
 
 	return order, nil
-
 }
 
 func (r *RedisRepo) DeleteByID(ctx context.Context, id uint64) error {
@@ -97,7 +97,7 @@ func (r *RedisRepo) DeleteByID(ctx context.Context, id uint64) error {
 func (r *RedisRepo) Update(ctx context.Context, order model.Order) error {
 	data, err := json.Marshal(order)
 	if err != nil {
-		return fmt.Errorf("failed to encode order json: %w", err)
+		return fmt.Errorf("failed to encode order: %w", err)
 	}
 
 	key := orderIDKey(order.OrderID)
@@ -151,11 +151,12 @@ func (r *RedisRepo) FindAll(ctx context.Context, page FindAllPage) (FindResult, 
 		if err != nil {
 			return FindResult{}, fmt.Errorf("failed to decode order json: %w", err)
 		}
+
 		orders[i] = order
 	}
+
 	return FindResult{
 		Orders: orders,
 		Cursor: cursor,
 	}, nil
-
 }
